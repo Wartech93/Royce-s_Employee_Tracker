@@ -15,7 +15,13 @@ class DB {
 
   // TODO- Create a query to Find all employees, join with roles and departments to display their roles, salaries, departments, and managers
   findAllEmployees() {
-    return this.query();
+        return this.query(`SELECT * FROM employee`);
+  }
+  findAllRoles() {
+    return this.query(`SELECT * FROM roles`);
+  }
+  findAllDepartments() {
+    return this.query(`SELECT * FROM department`)
   }
 
   // TODO- Create a query to Find all employees except the given employee id
