@@ -1,14 +1,17 @@
 const { prompt } = require("inquirer");
 const logo = require("asciiart-logo");
 const db = require("./db");
+const pool = require("./db/connection");
 
 init();
-
+ 
 // Display logo text, load main prompts
 function init() {
   const logoText = logo({ name: "City of Pawnee" }).render();
 
+ 
   console.log(logoText);
+
 
   loadMainPrompts();
 }
@@ -46,14 +49,13 @@ function loadMainPrompts() {
         }
     })
   };
-
   function addPrompt(){
     prompt([
         {
             type:'list',
             message:'What do you want to add to?',
             name:'add',
-            choice: ['Department', 'Role', 'Employee']
+            choices: ['Department', 'Role', 'Employee']
         }
     ]).then((res) => {
         switch (res.add) {
@@ -61,7 +63,7 @@ function loadMainPrompts() {
                 addDepartment();
                 break;
             case 'Role':
-                addAbortListener();
+                addRole();
                 break;
             case 'Employee':
                 addEmployee();
@@ -145,11 +147,6 @@ function deletePrompt() {
         }
     })
   };
-
-  function addDepartment(){
-
-  }
-
 // TODO- Create a function to View all employees
 
 const viewAllEmployees = async ()=> {
@@ -169,8 +166,88 @@ const viewAllDepartments = async ()=> {
     console.log('\n');
     console.table(rows);
     loadMainPrompts();
-}
+};
+  const addDepartment = async () => {
+    let {newDepartment} = await prompt([
+        {
+            name: 'newDepartment',
+            message: 'What is the department called?'            
+        }
+    ])
+let { rows } = await db.inputDepartment(newDepartment);
+console.log("Department added");
+  };
 
+  const addRole = async () => {    
+        const departments = await fetchDepartments();
+    let {newRole, newSalary, department} = await prompt ([
+        {
+            name: 'newRole',
+            message: 'What is the role called?'
+        },
+        {
+            name: 'newSalary',
+            message: 'How much does this role make?'
+        },
+        {
+            type: 'list',
+            name: 'department',
+            message: 'What department is this role in?',
+            choices: departments
+        }           
+    ])        
+    let { rows } = await db.inputRole(newRole, newSalary, department);
+    console.log("Role added");
+  }
+  const addEmployee = async () => {
+    const roles = await fetchRoles(); 
+    
+    let {newEmployee} = await prompt ([
+
+        {
+            name: 'newFirst',
+            message: 'What is the new employees first name?'
+        },
+        {
+            name: 'newLast',
+            message: 'What is the new employees last name?'
+        },
+        {
+            type: 'list',
+            name: 'newEmpRole',
+            message: 'What role is the new employee in?',
+            choices: roles
+        }
+    ])
+    let { rows } = await db.inputEmployee(newEmployee);
+    console.log("Employee added");
+  };
+  function fetchDepartments() {
+    return new Promise((resolve, reject) => {
+      pool.query('SELECT department_name FROM department', (error, results) => {
+        if (error) {
+          reject(error);
+        } else {
+            if (results.rows.length > 0) {
+          resolve(results.rows.map(row => row.department_name));
+        }
+    }
+    });
+});
+}
+function fetchRoles() {
+    return new Promise((resolve, reject) => {
+      pool.query('SELECT title FROM roles', (error, results) => {
+        if (error) {
+          reject(error);
+        } else {
+            if (results.rows.length > 0) {
+          resolve(results.rows.map(row => row.title));
+        }
+        }
+      });
+    });
+  }
 
 // BONUS- Create a function to View all employees that belong to a department
 
