@@ -15,7 +15,7 @@ function init() {
 
   loadMainPrompts();
 }
-
+//main prompt
 function loadMainPrompts() {
   prompt([
     {
@@ -49,6 +49,7 @@ function loadMainPrompts() {
         }
     })
   };
+  //prompt to select which area to add
   function addPrompt(){
     prompt([
         {
@@ -73,13 +74,14 @@ function loadMainPrompts() {
         }
     })
   };
+  //prompt to select which area to view
   function viewPrompt() {
     prompt([
         {
         type:'list',
         message: 'What would you like to do?',
         name: 'view',
-        choices: ['View all employees', 'View all roles', 'View all departments']
+        choices: ['View all employees', 'View all roles', 'View all departments', 'View all employees except chosen ID']
         }
     ]).then((res) => {
         switch(res.view) {
@@ -92,11 +94,15 @@ function loadMainPrompts() {
         case 'View all departments':
             viewAllDepartments();
             break;
+        case 'View all employees except chosen ID':
+            viewAllExcept();
+            break;
         default:
             console.log("Invalid option");
         }
     })
   };
+  //prompt to select which area to update
   function updatePrompt() {
     prompt ([
         {
@@ -122,6 +128,7 @@ function loadMainPrompts() {
         }
     })
   };
+  //prompt to ask user what they want to delete
 function deletePrompt() {
   prompt([
     {
@@ -147,20 +154,38 @@ function deletePrompt() {
         }
     })
   };
-// TODO- Create a function to View all employees
 
+// list all employees in a table
 const viewAllEmployees = async ()=> {
     let { rows } = await db.findAllEmployees();
     console.log('\n');
     console.table(rows);
     loadMainPrompts();
 };
+// list all employees except selected
+const viewAllExcept = async () => {
+    const exempt = await fetchEmployees();
+    let {allExceptId} = await prompt([
+        {
+            type: 'list',
+            name: 'allExceptId',
+            message: 'What employee do you want to exempt?',
+            choices: exempt
+        }
+    ])
+    let { rows } = await db.selectExcept(allExceptId);
+    console.log('\n');
+    console.table(rows);
+    loadMainPrompts();
+}
+//function to view all roles
 const viewAllRoles = async ()=> {
     let { rows } = await db.findAllRoles();
     console.log('\n');
     console.table(rows);
     loadMainPrompts();
 };
+// function to view all departments
 const viewAllDepartments = async ()=> {
     let { rows } = await db.findAllDepartments();
     console.log('\n');
@@ -176,8 +201,9 @@ const viewAllDepartments = async ()=> {
     ])
 let { rows } = await db.inputDepartment(newDepartment);
 console.log("Department added");
-  };
-
+loadMainPrompts();
+};
+//add role function
   const addRole = async () => {    
         const departments = await fetchDepartments();
     let {newRole, newSalary, department} = await prompt ([
@@ -195,10 +221,13 @@ console.log("Department added");
             message: 'What department is this role in?',
             choices: departments
         }           
-    ])        
-    let { rows } = await db.inputRole(newRole, newSalary, department);
+    ]);
+    const departmentId = await fetchDepartmentId(department);
+    let { rows } = await db.inputRole(newRole, newSalary, departmentId);
     console.log("Role added");
-  }
+    loadMainPrompts();
+};
+//add employee function
   const addEmployee = async () => {
     const roles = await fetchRoles(); 
     
@@ -221,59 +250,262 @@ console.log("Department added");
     ])
     let { rows } = await db.inputEmployee(newEmployee);
     console.log("Employee added");
-  };
+};
+// update department prompt
+const updateDepartment = async () => {
+    const departments = await fetchDepartments();
+    let {updatedDepartment, department} = await prompt ([
+        {
+            type: 'list',
+            name: 'department',
+            message: 'What department do you want to update?',
+            choices: departments
+        },
+        {
+            name: 'updatedDepartment',
+            message: 'What do you want to change this department name to?'
+        }
+    ]);
+    const departmentId = await fetchDepartmentId(department);
+    let { rows } = await db.changeDepartment(updatedDepartment, departmentId);
+    console.log("Department Updated");
+    loadMainPrompts();
+};
+//update role function
+const updateRole = async () => {
+    try {
+        const roles = await fetchRoles(); 
+        console.log(roles);       
+        // Prompt user to select a role
+        const { roleId } = await prompt([
+            {
+                type: 'list',
+                name: 'roleId',
+                message: 'Select a role to update:',
+                choices: roles
+            }
+        ]);
+        // Prompt for updated role name and salary
+        const {updatedRole, salary} = await prompt([
+            {
+                name: 'updatedRole',
+                message: 'Enter the updated role name:'
+            },
+            {
+                name: 'salary',
+                message: 'Enter the updated salary:'
+            }
+        ]);
+        // Call the changeRole function to update the role
+       const departmentId = await fetchDepartmentId(roles);
+       let { rows } = await db.changeRole(updatedRole, salary, roleId);     
+       console.log(updatedRole);
+       console.log(departmentId);
+        console.log("Role updated successfully.");
+        loadMainPrompts();
+    } catch (error) {
+        console.error('Error updating role:', error);
+    }
+};
+// update an employee function
+const updateEmployee = async () => {
+    const employees = await fetchEmployees();
+    const roles = await fetchRoles();  
+    let { Employee, role } = await prompt ([
+        {
+            type:'list',
+            name: 'Employee',
+            message: 'What employee do you want to change the role of?',
+            choices: employees
+        },
+        {   
+            type: 'list',
+            name: 'role',
+            message: 'What role will this employee be in?',
+            choices: roles
+        }        
+    ]);   
+    let { rows } = await db.changeEmployee(role, Employee);
+        console.log("Employee Updated");
+        loadMainPrompts();
+};
+// delete a department role
+const deleteDepartment = async () => {
+        const departments = await fetchDepartments();
+        let { department } = await prompt ([
+            {
+                type: 'list',
+                name: 'department',
+                message: 'What department do you want to delete?',
+                choices: departments
+            }
+        ])
+        let { rows } = await db.removeDepartment(department);
+        console.log("Department Deleted");
+        loadMainPrompts();
+};
+// delete a role function
+const deleteRole = async () => {
+    const roles = await fetchRoles();
+    let {role} = await prompt ([
+        {
+            type: 'list',
+            name: 'role',
+            message: 'What role do you want to delete?',
+            choices: roles
+        }       
+    ]);
+    let { rows } = await db.removeRole(role);
+    console.log(`Role deleted`);
+    loadMainPrompts();
+};
+//delete individual employee
+const deleteEmployee = async () => {
+    const employees = await fetchEmployees();
+    let {employee} = await prompt ([
+        {
+            type: 'list',
+            name: 'employees',
+            message: 'What employee do you want to delete?',
+            choices: employees
+        }        
+    ]);
+    let { rows } = await db.removeEmployee(employee);
+    console.log(`Employee deleted`);
+    loadMainPrompts();    
+};
+// get all department and id function and maps them all
   function fetchDepartments() {
     return new Promise((resolve, reject) => {
-      pool.query('SELECT department_name FROM department', (error, results) => {
+      pool.query('SELECT department_name, department_id FROM department', (error, results) => {
         if (error) {
           reject(error);
         } else {
             if (results.rows.length > 0) {
-          resolve(results.rows.map(row => row.department_name));
+          resolve(results.rows.map(({department_name, department_id}) => ({
+            name: department_name,
+            value: department_id
+          })));
         }
     }
     });
 });
-}
+};
+//get an individual id for a department
+async function fetchDepartmentId() {
+    return new Promise ((resolve, reject) => {
+    pool.query('SELECT department_id FROM department', (error, results) => {
+        if (error) {
+            reject(error);
+        } else { 
+            if(results.rows.length > 0) {
+                resolve(results.rows[0].department_id);
+            }            
+        }
+    });
+    });  
+};
+//gets all roles and id and maps over them
 function fetchRoles() {
     return new Promise((resolve, reject) => {
-      pool.query('SELECT title FROM roles', (error, results) => {
+      pool.query('SELECT * FROM roles', (error, results) => {
         if (error) {
           reject(error);
         } else {
             if (results.rows.length > 0) {
-          resolve(results.rows.map(row => row.title));
+          resolve(results.rows.map(({title, role_id}) => ({
+            name: title,
+            value: role_id
+          })));
         }
         }
       });
     });
-  }
+};
 
+//get an individual id for a role
+function fetchRoleId() {
+    return new Promise((resolve, reject) => {
+        pool.query('SELECT role_id FROM roles', (error, results) => {
+            if (error) {
+                reject(error);
+            } else {
+                if (results.rows.length > 0) {
+                    resolve(results.rows[0].role_id);
+                }
+            }
+        });
+    });
+};
+//get all employees and id and maps over them
+function fetchEmployees() {
+    return new Promise((resolve, reject) => {
+        pool.query('SELECT first_name, last_name, employee_id FROM employee', (error, results) => {
+          if (error) {
+            reject(error);
+          } else {
+              if (results.rows.length > 0) {
+            resolve(results.rows.map(({first_name, last_name, employee_id}) => ({
+                name: `${first_name} ${last_name}`,
+                value: employee_id
+            })));
+          }
+          }
+        });
+      });
+}
+//get individual employee id
+function fetchEmployeeId() {
+    return new Promise((resolve, reject) => {
+        pool.query('SELECT employee_id FROM employee', (error, results) => {
+            if (error) {
+                reject(error);
+            } else {
+                if (results.rows.length > 0) {
+                    resolve(results.rows[0].employee_id);
+                }
+            }
+        });
+    });
+};
+//fetch and individiual manager id from employee
+function fetchManagerId() {
+    return new Promise((resolve, reject) => {
+        pool.query('SELECT manager_id FROM employee', (error, results) => {
+            if (error) {
+                reject(error);
+            } else {
+                if (results.rows.length > 0) {
+                    resolve(results.rows[0].manager_id);
+                }
+            }
+        });
+    });
+}
 // BONUS- Create a function to View all employees that belong to a department
 
 // BONUS- Create a function to View all employees that report to a specific manager
 
 // BONUS- Create a function to Delete an employee
 
-// TODO- Create a function to Update an employee's role
+
 
 // BONUS- Create a function to Update an employee's manager
 
-// TODO- Create a function to View all roles
 
-// TODO- Create a function to Add a role
 
-// BONUS- Create a function to Delete a role
 
-// TODO- Create a function to View all deparments
 
-// TODO- Create a function to Add a department
+
+
+
+
 
 // BONUS- Create a function to Delete a department
 
 // BONUS- Create a function to View all departments and show their total utilized department budget
 
-// TODO- Create a function to Add an employee
+
 
 // Exit the application
 function quit() {

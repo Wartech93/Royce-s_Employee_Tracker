@@ -19,7 +19,7 @@ CREATE TABLE roles (
     title VARCHAR(100) UNIQUE NOT NULL,
     salary DECIMAL NOT NULL,
     department_id INTEGER NOT NULL,
-    CONSTRAINT fk_department FOREIGN KEY (department_id) REFERENCES department(department_id)
+    CONSTRAINT fk_department FOREIGN KEY (department_id) REFERENCES department(department_id) ON DELETE CASCADE
 );
 -- TODO- write an SQL command to Create the employee table
 
